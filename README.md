@@ -231,8 +231,100 @@ Even though the `aggregate` task depends on the `process` results, Ray allows fo
 
 Ray makes it easy to parallelize Python code without needing to worry about the intricacies of managing multiple processes or threads. It automatically scales to available resources and is a great fit for projects requiring distributed execution. By reducing runtime, Ray enables faster iterations, which is crucial when dealing with large datasets or time-consuming computations.
 
-In future posts, we’ll explore advanced Ray features like actors, task scheduling, and scaling across clusters. For now, try out the basic examples and see how much time you can save on your own projects.
-
 --- 
 
-By comparing sequential and parallel task execution and introducing task dependencies, we’ve showcased the power of Ray in speeding up simple workflows. If you're looking to optimize your Python code, Ray is a tool worth learning.
+## MongoDB + Ray
+
+**ray-mdb.py**
+
+```python
+import time
+import pymongo
+import ray
+
+ray.init()
+
+@ray.remote
+class Aggregator:
+    def __init__(self, host, port, max_pool_size=10):
+        # Create a MongoDB client with connection pooling
+        self.client = pymongo.MongoClient(host, port, maxPoolSize=max_pool_size)
+
+    def aggregate(self, database, collection, pipeline):
+        db = self.client[database]
+        return list(db[collection].aggregate(pipeline))
+
+start_time = time.time()
+
+# Create actors for each aggregation with connection pooling
+aggregator1 = Aggregator.remote("mongodb://127.0.0.1/?directConnection=true", 27017)
+aggregator2 = Aggregator.remote("mongodb://127.0.0.1/?directConnection=true", 27017)
+
+# Submit aggregation tasks to the actors
+result1_future = aggregator1.aggregate.remote("sample_mflix", "embedded_movies", [{"$match": {}}])
+result2_future = aggregator2.aggregate.remote("sample_mflix", "comments", [{"$match": {}}])
+
+# Get the results asynchronously
+result1 = ray.get(result1_future)
+result2 = ray.get(result2_future)
+
+result = result1 + result2
+
+end_time = time.time()
+
+print(f"Number of results: {len(result)}")
+print(f"Execution time: {end_time - start_time} seconds")
+
+
+"""
+If the aggregation tasks are relatively small, the overhead from Ray can overshadow the benefits of parallel execution. 
+The time taken for communication and coordination can exceed the time saved by parallel processing.
+
+with-ray
+Number of results: 44562
+Execution time: 1.444197177886963 seconds
+
+no-ray
+Number of results: 44562
+Execution time: 0.765700101852417 seconds
+"""
+```
+
+**no-ray-mdb.py**
+
+```python
+import time
+from pymongo import MongoClient
+
+start_time = time.time()
+
+client = MongoClient('mongodb://localhost:27017/?directConnection=true')
+db = client['sample_mflix']
+
+result1 = list(db['embedded_movies'].aggregate([
+    {"$match":{}}
+]))
+result2 = list(db['comments'].aggregate([
+    {"$match":{}}
+]))
+
+combined_result = result1 + result2
+
+end_time = time.time()
+
+print(f"Number of results: {len(combined_result)}")
+print(f"Execution time: {end_time - start_time} seconds")
+
+"""
+If the aggregation tasks are relatively small, the overhead from Ray can overshadow the benefits of parallel execution. 
+The time taken for communication and coordination can exceed the time saved by parallel processing.
+
+with-ray
+Number of results: 44562
+Execution time: 1.444197177886963 seconds
+
+no-ray
+Number of results: 44562
+Execution time: 0.765700101852417 seconds
+"""
+```
