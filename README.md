@@ -1,10 +1,30 @@
-# ray-101
-Ray fundamentals
+# Ray 101: Accelerating Python Workflows with Ray
 
-## no ray
+Parallel computing can significantly speed up data processing tasks by utilizing multiple CPU cores. Ray is an open-source framework that makes it easy to scale Python code from a single machine to a cluster, without the need to manage complex distributed systems. In this post, we'll explore the fundamentals of Ray, demonstrate how it can accelerate Python workflows, and delve into its integration with MongoDB. We'll also discuss scenarios where using Ray may not yield performance benefits.
+
+## Table of Contents
+
+- [Understanding Ray Fundamentals](#understanding-ray-fundamentals)
+  - [Sequential Execution without Ray](#sequential-execution-without-ray)
+  - [Parallel Execution with Ray](#parallel-execution-with-ray)
+- [Task Dependencies in Ray](#task-dependencies-in-ray)
+- [Integrating Ray with MongoDB](#integrating-ray-with-mongodb)
+  - [Parallel Aggregations with Ray and MongoDB](#parallel-aggregations-with-ray-and-mongodb)
+  - [Sequential Aggregations without Ray](#sequential-aggregations-without-ray)
+- [When to Use Ray (and When Not To)](#when-to-use-ray-and-when-not-to)
+- [Conclusion](#conclusion)
+
+---
+
+## Understanding Ray Fundamentals
+
+### Sequential Execution without Ray
+
+Let's start with a simple Python script that simulates data retrieval from a database. We'll define a `retrieve` function that introduces a delay using `time.sleep()` to mimic a time-consuming operation.
 
 ```python
 import time
+
 database = [
     "Learning", "Ray"
     "Learning", "Ray"
@@ -14,19 +34,21 @@ database = [
 ]
 
 def retrieve(item):
-    time.sleep(item/10.00)
+    time.sleep(item / 10.00)  # Simulate processing time
     return item, database[item]
 
 def print_runtime(input_data, start_time):
-    print(f'Runtime:{time.time() - start_time:.2f} seconds; data:')
+    print(f'Runtime: {time.time() - start_time:.2f} seconds; data:')
     print(*input_data, sep='\n')
-
 
 start_time = time.time()
 input_data = [retrieve(item) for item in range(len(database))]
 print_runtime(input_data, start_time)
+```
 
-"""
+**Output:**
+
+```
 Runtime:1.52 seconds; data:
 (0, 'Learning')
 (1, 'RayLearning')
@@ -34,10 +56,13 @@ Runtime:1.52 seconds; data:
 (3, 'RayLearning')
 (4, 'RayLearning')
 (5, 'Ray')
-"""
 ```
 
-## ray
+In this script, each call to `retrieve` is executed sequentially. The total runtime is the sum of the individual delays, which can become significant as the number of tasks increases.
+
+### Parallel Execution with Ray
+
+By incorporating Ray, we can execute these tasks in parallel, leveraging multiple CPU cores to reduce the overall runtime.
 
 ```python
 import time
@@ -55,21 +80,23 @@ database = [
 
 @ray.remote
 def retrieve(item):
-    time.sleep(item/10.00)
+    time.sleep(item / 10.00)
     return item, database[item]
 
 def print_runtime(input_data, start_time):
-    print(f'Runtime:{time.time() - start_time:.2f} seconds; data:')
+    print(f'Runtime: {time.time() - start_time:.2f} seconds; data:')
     print(*input_data, sep='\n')
-
 
 start_time = time.time()
 object_references = [retrieve.remote(item) for item in range(len(database))]
 input_data = ray.get(object_references)
 print_runtime(input_data, start_time)
+```
 
-"""
-2024-10-18 10:56:44,268	INFO worker.py:1777 -- Started a local Ray instance. View the dashboard at 127.0.0.1:8265 
+**Output:**
+
+```
+2024-10-18 10:56:44,268	INFO worker.py:1777 -- Started a local Ray instance.
 Runtime:0.87 seconds; data:
 (0, 'Learning')
 (1, 'RayLearning')
@@ -77,112 +104,22 @@ Runtime:0.87 seconds; data:
 (3, 'RayLearning')
 (4, 'RayLearning')
 (5, 'Ray')
-"""
 ```
 
-## Ray 101: Speeding Up Your Workflows with Ray
+In the Ray-enabled script:
 
-In this post, we’ll explore how Ray can help accelerate Python workflows by distributing tasks across multiple cores, allowing for parallel execution. We’ll start with a simple example that demonstrates the difference between a traditional Python script and one powered by Ray. Then, we’ll dive into task dependencies and how Ray handles them with meaningful examples.
+- We initialize Ray with `ray.init()`.
+- The `retrieve` function is decorated with `@ray.remote`, indicating that it can be executed as a Ray task.
+- We invoke `retrieve.remote(item)` for each item, which schedules the tasks for parallel execution.
+- `ray.get(object_references)` collects the results once all tasks are completed.
 
-### No Ray: A Simple Python Workflow
+**Performance Improvement:**
 
-Let’s begin with a traditional Python setup where we retrieve data from a database. The `retrieve` function simulates a task that takes some time to complete, and we'll execute it in sequence. Here’s the code:
+The runtime is reduced from **1.52 seconds** to **0.87 seconds**, showcasing the benefits of parallel execution.
 
-```python
-import time
+## Task Dependencies in Ray
 
-database = [
-    "Learning", "Ray"
-    "Learning", "Ray"
-    "Learning", "Ray"
-    "Learning", "Ray"
-    "Learning", "Ray"
-]
-
-def retrieve(item):
-    time.sleep(item/10.00)  # Simulate processing time
-    return item, database[item]
-
-def print_runtime(input_data, start_time):
-    print(f'Runtime:{time.time() - start_time:.2f} seconds; data:')
-    print(*input_data, sep='\n')
-
-
-start_time = time.time()
-input_data = [retrieve(item) for item in range(len(database))]
-print_runtime(input_data, start_time)
-```
-
-This function goes through each item in the database, waits for a specified time (simulating some work), and returns the result. The runtime output looks like this:
-
-```
-Runtime: 1.52 seconds; data:
-(0, 'Learning')
-(1, 'RayLearning')
-(2, 'RayLearning')
-(3, 'RayLearning')
-(4, 'RayLearning')
-(5, 'Ray')
-```
-
-While it works, the sequential execution means that even small delays add up. This is where Ray can step in to optimize performance.
-
-### Adding Ray: Parallel Execution
-
-Now, let’s use Ray to execute these tasks in parallel, taking advantage of multiple CPU cores. By using Ray's `remote` decorator, we can distribute the workload across different workers.
-
-```python
-import time
-import ray
-
-ray.init()
-
-database = [
-    "Learning", "Ray"
-    "Learning", "Ray"
-    "Learning", "Ray"
-    "Learning", "Ray"
-    "Learning", "Ray"
-]
-
-@ray.remote
-def retrieve(item):
-    time.sleep(item/10.00)
-    return item, database[item]
-
-def print_runtime(input_data, start_time):
-    print(f'Runtime:{time.time() - start_time:.2f} seconds; data:')
-    print(*input_data, sep='\n')
-
-
-start_time = time.time()
-object_references = [retrieve.remote(item) for item in range(len(database))]
-input_data = ray.get(object_references)
-print_runtime(input_data, start_time)
-```
-
-Here, the `retrieve` function is now decorated with `@ray.remote`, which allows Ray to distribute it as a task. When we call `retrieve.remote(item)`, Ray schedules these tasks in parallel, and we use `ray.get()` to gather the results. This gives us a much faster runtime:
-
-```
-2024-10-18 10:56:44,268	INFO worker.py:1777 -- Started a local Ray instance. 
-Runtime: 0.87 seconds; data:
-(0, 'Learning')
-(1, 'RayLearning')
-(2, 'RayLearning')
-(3, 'RayLearning')
-(4, 'RayLearning')
-(5, 'Ray')
-```
-
-With Ray, we’ve cut the runtime almost in half by running tasks concurrently instead of sequentially. 
-
-### Task Dependencies in Ray
-
-Ray can handle more complex workflows involving task dependencies. For example, one task may depend on the results of another, but Ray still allows for concurrent execution when possible. Let’s look at a more meaningful example where tasks need to wait for the result of a previous one.
-
-#### Example: Task Dependencies
-
-Consider a scenario where we first need to process data before aggregating the results. Here's a simplified example:
+Ray excels not only at parallelizing independent tasks but also at handling tasks with dependencies. Let's consider an example where we process data and then aggregate the results.
 
 ```python
 import ray
@@ -214,28 +151,24 @@ print(f'Aggregated result: {final_result}')
 print(f'Runtime: {time.time() - start_time:.2f} seconds')
 ```
 
-In this example:
-1. The `process` function processes each item in parallel.
-2. The `aggregate` function depends on the results of `process`, but we still execute the processing step in parallel.
-
-The output demonstrates how Ray efficiently handles the dependencies:
+**Output:**
 
 ```
 Aggregated result: 20
 Runtime: 1.04 seconds
 ```
 
-Even though the `aggregate` task depends on the `process` results, Ray allows for parallel execution of independent tasks, speeding up the workflow significantly.
+**Explanation:**
 
-### Why Ray?
+- The `process` tasks are executed in parallel, each taking 1 second.
+- The `aggregate` task waits for all `process` tasks to complete.
+- The total runtime is just over 1 second, instead of 5 seconds if executed sequentially.
 
-Ray makes it easy to parallelize Python code without needing to worry about the intricacies of managing multiple processes or threads. It automatically scales to available resources and is a great fit for projects requiring distributed execution. By reducing runtime, Ray enables faster iterations, which is crucial when dealing with large datasets or time-consuming computations.
+## Integrating Ray with MongoDB
 
---- 
+MongoDB is a popular NoSQL database, and integrating it with Ray can enable parallel data processing tasks such as aggregations. Let's explore how to use Ray with MongoDB and understand when it provides performance benefits.
 
-## MongoDB + Ray
-
-**ray-mdb.py**
+### Parallel Aggregations with Ray and MongoDB
 
 ```python
 import time
@@ -268,29 +201,30 @@ result2_future = aggregator2.aggregate.remote("sample_mflix", "comments", [{"$ma
 result1 = ray.get(result1_future)
 result2 = ray.get(result2_future)
 
-result = result1 + result2
+combined_result = result1 + result2
 
 end_time = time.time()
 
-print(f"Number of results: {len(result)}")
+print(f"Number of results: {len(combined_result)}")
 print(f"Execution time: {end_time - start_time} seconds")
-
-
-"""
-If the aggregation tasks are relatively small, the overhead from Ray can overshadow the benefits of parallel execution. 
-The time taken for communication and coordination can exceed the time saved by parallel processing.
-
-with-ray
-Number of results: 44562
-Execution time: 1.444197177886963 seconds
-
-no-ray
-Number of results: 44562
-Execution time: 0.765700101852417 seconds
-"""
 ```
 
-**no-ray-mdb.py**
+**Output:**
+
+```
+Number of results: 44562
+Execution time: 1.444197177886963 seconds
+```
+
+In this script:
+
+- We define an `Aggregator` actor class that holds a MongoDB client.
+- Two aggregator actors are created to perform separate aggregation tasks in parallel.
+- The results are combined after both tasks complete.
+
+### Sequential Aggregations without Ray
+
+Now, let's perform the same aggregations sequentially without using Ray.
 
 ```python
 import time
@@ -302,10 +236,10 @@ client = MongoClient('mongodb://localhost:27017/?directConnection=true')
 db = client['sample_mflix']
 
 result1 = list(db['embedded_movies'].aggregate([
-    {"$match":{}}
+    {"$match": {}}
 ]))
 result2 = list(db['comments'].aggregate([
-    {"$match":{}}
+    {"$match": {}}
 ]))
 
 combined_result = result1 + result2
@@ -314,17 +248,60 @@ end_time = time.time()
 
 print(f"Number of results: {len(combined_result)}")
 print(f"Execution time: {end_time - start_time} seconds")
+```
 
-"""
-If the aggregation tasks are relatively small, the overhead from Ray can overshadow the benefits of parallel execution. 
-The time taken for communication and coordination can exceed the time saved by parallel processing.
+**Output:**
 
-with-ray
-Number of results: 44562
-Execution time: 1.444197177886963 seconds
-
-no-ray
+```
 Number of results: 44562
 Execution time: 0.765700101852417 seconds
-"""
 ```
+
+**Observation:**
+
+- The sequential execution without Ray is faster in this case.
+- The execution time without Ray is approximately **0.77 seconds**, compared to **1.44 seconds** with Ray.
+
+## When to Use Ray (and When Not To)
+
+While Ray can significantly speed up tasks by parallelizing them, it's important to consider the overhead introduced by Ray itself. This includes:
+
+- **Serialization and Deserialization:** Data passed between tasks may need to be serialized.
+- **Communication Overhead:** Coordination between workers and the Ray scheduler can add latency.
+- **Resource Utilization:** Spinning up multiple workers consumes system resources.
+
+**Scenarios Where Ray Shines:**
+
+- **Long-Running Tasks:** Tasks that take a substantial amount of time benefit from parallel execution.
+- **Compute-Intensive Operations:** CPU-bound tasks that can be distributed across cores.
+- **Large-Scale Data Processing:** When working with large datasets that exceed the capacity of a single machine.
+
+**Scenarios Where Ray May Not Help:**
+
+- **Short Tasks with Low Latency:** The overhead of task scheduling and communication can outweigh the benefits.
+- **I/O-Bound Tasks with External Bottlenecks:** If tasks are waiting on I/O operations (e.g., database queries), parallel execution may not improve performance.
+- **Limited Resources:** On systems with limited CPU cores or memory, adding parallelism can lead to contention.
+
+**Analysis of Our MongoDB Example:**
+
+In the MongoDB aggregation example:
+
+- **Task Duration:** The aggregation tasks are relatively quick.
+- **Overhead Costs:** The overhead introduced by Ray (e.g., starting actors, serializing data) adds to the total execution time.
+- **Database Constraints:** MongoDB may become a bottleneck if it cannot handle multiple simultaneous requests efficiently.
+
+As a result, the sequential execution without Ray is faster because it avoids the overhead associated with parallelism in this context.
+
+## Conclusion
+
+Ray is a powerful tool for parallelizing and scaling Python applications. It can lead to significant performance improvements when used appropriately. However, it's crucial to assess whether the tasks at hand will benefit from parallel execution.
+
+**Key Takeaways:**
+
+- **Evaluate Task Complexity:** Use Ray for tasks that are sufficiently long-running or compute-intensive.
+- **Consider Overhead:** Be mindful of the overhead introduced by Ray, especially for small or quick tasks.
+- **Test and Measure:** Always benchmark your applications with and without Ray to determine if it provides a performance benefit.
+
+By understanding when and how to use Ray, you can optimize your workflows for maximum efficiency.
+
+---
