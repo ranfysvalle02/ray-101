@@ -2,9 +2,7 @@
 
 Processing large datasets or running computationally intensive tasks can be time-consuming when executed sequentially. Imagine trying to process a year's worth of transaction data line by line—it could take hours or even days on a single processor. This is where parallel computing comes into play.
 
-Parallel computing allows you to break down hefty tasks into smaller chunks that can be processed simultaneously across multiple cores or machines. 
-
-In this post, we'll explore how **Ray**, an open-source framework for distributed computing, can help accelerate your Python workflows. We'll start by understanding Ray's fundamentals, then dive into task dependencies, integrate Ray with MongoDB, and finally, we'll discuss when to use Ray and when it might not be the best choice.
+Parallel computing allows you to break down hefty tasks into smaller chunks that can be processed simultaneously across multiple cores or machines. In this post, we'll explore how **Ray**, an open-source framework for distributed computing, can help accelerate your Python workflows. We'll start by understanding Ray's fundamentals, then dive into task dependencies, integrate Ray with MongoDB, discuss when to use Ray and when it might not be the best choice, build an echo service with Ray Serve, utilize Ray Actors for stateful computations, and finally explore hyperparameter tuning with Ray Tune.
 
 ## Table of Contents
 
@@ -18,6 +16,7 @@ In this post, we'll explore how **Ray**, an open-source framework for distribute
 - [When to Use Ray (and When Not To)](#when-to-use-ray-and-when-not-to)
 - [Building an Echo Service with Ray Serve](#building-an-echo-service-with-ray-serve)
 - [Utilizing Ray Actors for Stateful Computations](#utilizing-ray-actors-for-stateful-computations)
+- [Hyperparameter Tuning with Ray Tune](#hyperparameter-tuning-with-ray-tune)
 - [Conclusion](#conclusion)
 
 ---
@@ -67,7 +66,7 @@ Runtime: 6.00 seconds; data:
 (5, 'Ray')
 ```
 
-In this script:
+**Explanation:**
 
 - We simulate a database with six entries by repeating `["Learning", "Ray"]` three times.
 - The `retrieve` function simulates a time-consuming operation by sleeping for 1 second.
@@ -105,7 +104,6 @@ print_runtime(input_data, start_time)
 **Output:**
 
 ```
-2024-10-18 10:56:44,268	INFO worker.py:1777 -- Started a local Ray instance.
 Runtime: 1.02 seconds; data:
 (0, 'Learning')
 (1, 'Ray')
@@ -115,7 +113,7 @@ Runtime: 1.02 seconds; data:
 (5, 'Ray')
 ```
 
-In the Ray-enabled script:
+**Explanation:**
 
 - We initialize Ray with `ray.init()`.
 - The `retrieve` function is decorated with `@ray.remote`, indicating that it can be executed as a Ray task.
@@ -336,34 +334,21 @@ serve.run(echo.bind())
 import requests
 response = requests.get("http://localhost:8000/", params={"data": "Hello"})
 print(response.text)
-
-"""
-2024-10-23 21:42:24,973	INFO worker.py:1777 -- Started a local Ray instance. View the dashboard at 127.0.0.1:8265 
-INFO 2024-10-23 21:42:26,744 serve 32467 api.py:277 - Started Serve in namespace "serve".
-INFO 2024-10-23 21:42:26,745 serve 32467 api.py:259 - Connecting to existing Serve app in namespace "serve". New http options will not be applied.
-(ProxyActor pid=32493) INFO 2024-10-23 21:42:26,724 proxy 127.0.0.1 proxy.py:1188 - Proxy starting on node 0ac326e032cb7205d02860228c843608cadd84d301f27b5f0188edd3 (HTTP port: 8000).
-(ServeController pid=32489) INFO 2024-10-23 21:42:26,791 controller 32489 deployment_state.py:1598 - Deploying new version of Deployment(name='echo', app='default') (initial target replicas: 1).
-(ServeController pid=32489) INFO 2024-10-23 21:42:26,893 controller 32489 deployment_state.py:1844 - Adding 1 replica to Deployment(name='echo', app='default').
-INFO 2024-10-23 21:42:27,754 serve 32467 client.py:492 - Deployment 'echo:s8cys2ug' is ready at `http://127.0.0.1:8000/`. component=serve deployment=echo
-INFO 2024-10-23 21:42:27,756 serve 32467 api.py:549 - Deployed app 'default' successfully.
-Received data: Hello
-(ServeReplica:default:echo pid=32488) INFO 2024-10-23 21:42:27,775 default_echo f8tx91cf 6da86f01-fd35-4de1-9a9d-35817bb13f26 / replica.py:376 - __CALL__ OK 2.5ms
-"""
 ```
-
-**Explanation:**
-
-- **Initialization:** We initialize Ray and start the Ray Serve instance.
-- **Deployment Definition:** The `echo` function is decorated with `@serve.deployment`, making it a deployable service.
-- **Deployment:** We deploy the `echo` service using `echo.deploy()`.
-- **Request Handling:** The service extracts the `data` parameter from the query string and returns it.
-- **Client Request:** We send a GET request to the service and print the response.
 
 **Output:**
 
 ```
 Received data: Hello
 ```
+
+**Explanation:**
+
+- **Initialization:** We initialize Ray and start the Ray Serve instance.
+- **Deployment Definition:** The `echo` function is decorated with `@serve.deployment`, making it a deployable service.
+- **Deployment:** We deploy the `echo` service using `serve.run(echo.bind())`.
+- **Request Handling:** The service extracts the `data` parameter from the query string and returns it.
+- **Client Request:** We send a GET request to the service and print the response.
 
 **Notes:**
 
@@ -422,25 +407,32 @@ print(results)
 - They can help in scenarios where tasks need to share or update common data.
 
 ## Hyperparameter Tuning with Ray Tune
-![](ray-hyperparameter-tuning.png)
+
+![Hyperparameter Tuning with Ray Tune](ray-hyperparameter-tuning.png)
+
+Hyperparameter tuning is a crucial step in building effective machine learning models. It involves finding the optimal set of hyperparameters that yield the best performance for a given model and dataset. **Ray Tune** is a scalable hyperparameter tuning library built on top of Ray that allows you to efficiently search for the best hyperparameters.
+
+Let's demonstrate how to use Ray Tune with PyTorch Lightning to perform hyperparameter tuning on a synthetic dataset.
+
+**Code Example:**
+
 ```python
 import pytorch_lightning as pl
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, random_split, TensorDataset
-import numpy as np
 from sklearn.datasets import make_classification
 from ray import tune
 from ray.tune.integration.pytorch_lightning import TuneReportCallback
 from ray.tune.schedulers import ASHAScheduler
 
-
 # Step 1: Generate synthetic data
 def generate_synthetic_data(n_samples=1000, n_features=20, n_classes=2):
-    X, y = make_classification(n_samples=n_samples, n_features=n_features, n_informative=10, 
-                               n_classes=n_classes, random_state=42)
+    X, y = make_classification(
+        n_samples=n_samples, n_features=n_features, n_informative=10,
+        n_classes=n_classes, random_state=42
+    )
     return torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.long)
-
 
 # Step 2: Define a Lightning DataModule for the synthetic data
 class SyntheticDataModule(pl.LightningDataModule):
@@ -458,7 +450,6 @@ class SyntheticDataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.val, batch_size=self.batch_size)
-
 
 # Step 3: Define a simple model
 class SimpleModel(pl.LightningModule):
@@ -487,7 +478,6 @@ class SimpleModel(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
 
-
 # Step 4: Define the training function for Ray Tune
 def train_tune(config, num_epochs=10):
     model = SimpleModel(hidden_size=config["hidden_size"], learning_rate=config["learning_rate"])
@@ -495,12 +485,11 @@ def train_tune(config, num_epochs=10):
 
     trainer = pl.Trainer(
         max_epochs=num_epochs,
-        callbacks=[TuneReportCallback({"loss": "train_loss"}, on="train_end")],  # Use TuneReportCallback
-        enable_progress_bar=False,  # Disabling the progress bar for cleaner output
-        log_every_n_steps=10  # Log more frequently to avoid the logging interval warning
+        callbacks=[TuneReportCallback({"loss": "train_loss"}, on="train_end")],
+        enable_progress_bar=False,
+        log_every_n_steps=10
     )
     trainer.fit(model, datamodule=data_module)
-
 
 # Step 5: Set up Ray Tune's hyperparameter search space and run the tuning process
 search_space = {
@@ -509,25 +498,50 @@ search_space = {
 }
 
 scheduler = ASHAScheduler(
-    max_t=10,  # Max number of epochs per trial
-    grace_period=1,  # Early stopping grace period
+    max_t=10,         # Max number of epochs per trial
+    grace_period=1,   # Early stopping grace period
     reduction_factor=2  # Halve the number of trials after each step
 )
 
 # Run the hyperparameter tuning process with Ray Tune
-tuner = tune.run(
+analysis = tune.run(
     tune.with_parameters(train_tune, num_epochs=10),
-    resources_per_trial={"cpu": 1, "gpu": 0},  # Adjust according to available resources
+    resources_per_trial={"cpu": 1, "gpu": 0},
     config=search_space,
     metric="loss",
     mode="min",
-    num_samples=10,  # Number of random samples in hyperparameter search
+    num_samples=10,
     scheduler=scheduler
 )
 
 # Print the best hyperparameters found
-print("Best hyperparameters found were: ", tuner.best_config)
+print("Best hyperparameters found were: ", analysis.best_config)
 ```
+
+**Explanation:**
+
+- **Step 1:** We generate a synthetic classification dataset using `sklearn.datasets.make_classification`.
+- **Step 2:** We define a `LightningDataModule` to handle data loading for training and validation.
+- **Step 3:** We create a simple neural network model using PyTorch Lightning, parameterized by `hidden_size` and `learning_rate`.
+- **Step 4:** We define a training function `train_tune` that takes a configuration from Ray Tune and trains the model.
+- **Step 5:** We set up the hyperparameter search space and the scheduler. We use the `ASHAScheduler` for efficient hyperparameter optimization.
+- **Running Tune:** We run the tuning process, specifying the metric to minimize (`loss`) and the number of samples (`num_samples`).
+
+**Output:**
+
+The output will include the progress of the tuning process and, finally, the best hyperparameters found:
+
+```
+Best hyperparameters found were:  {'hidden_size': 64, 'learning_rate': 0.00123456789}
+```
+
+(Actual values may vary.)
+
+**Notes:**
+
+- **Ray Tune Integration:** Ray Tune integrates seamlessly with PyTorch Lightning via `TuneReportCallback`.
+- **Scalability:** Ray Tune can distribute hyperparameter tuning across multiple CPUs or GPUs, accelerating the search process.
+- **Early Stopping:** The `ASHAScheduler` allows for early stopping of unpromising trials to save computational resources.
 
 ## Conclusion
 
