@@ -302,7 +302,6 @@ In the MongoDB aggregation example:
 
 - **Task Duration:** The aggregation tasks are relatively quick and I/O-bound.
 - **Overhead Costs:** The overhead introduced by Ray (e.g., starting actors, serializing data) adds to the total execution time.
-- **Database Constraints:** MongoDB may become a bottleneck if it cannot handle multiple simultaneous requests efficiently.
 
 As a result, the sequential execution without Ray is faster because it avoids the overhead associated with parallelism in this context.
 
