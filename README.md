@@ -408,7 +408,7 @@ print(results)
 
 ## Hyperparameter Tuning with Ray Tune
 
-![Hyperparameter Tuning with Ray Tune](ray-hyperparameter-tuning.png)
+![](ray-hyperparameter-tuning.png)
 
 Hyperparameter tuning is a crucial step in building effective machine learning models. It involves finding the optimal set of hyperparameters that yield the best performance for a given model and dataset. **Ray Tune** is a scalable hyperparameter tuning library built on top of Ray that allows you to efficiently search for the best hyperparameters.
 
