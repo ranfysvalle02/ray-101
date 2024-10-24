@@ -1,5 +1,7 @@
 # Ray 101: Accelerating Python Workflows with Ray
 
+![](https://ray-project.github.io/q4-2021-docs-hackathon/0.4/ray-overview/images/ray_framework_v2.png)
+
 Processing large datasets or running computationally intensive tasks can be time-consuming when executed sequentially. Imagine trying to process a year's worth of transaction data line by line—it could take hours or even days on a single processor. This is where parallel computing comes into play.
 
 Parallel computing allows you to break down hefty tasks into smaller chunks that can be processed simultaneously across multiple cores or machines. In this post, we'll explore how **Ray**, an open-source framework for distributed computing, can help accelerate your Python workflows. We'll start by understanding Ray's fundamentals, then dive into task dependencies, integrate Ray with MongoDB, discuss when to use Ray and when it might not be the best choice, build an echo service with Ray Serve, utilize Ray Actors for stateful computations, and finally explore hyperparameter tuning with Ray Tune.
