@@ -556,3 +556,211 @@ Ray is a powerful tool for parallelizing and scaling Python applications. It can
 By understanding when and how to use Ray, you can optimize your workflows for maximum efficiency and take full advantage of modern computing resources.
 
 ---
+
+## Creating Task Dependencies and DAGs in Ray
+
+In complex applications, tasks often depend on the results of other tasks. Ray allows you to define such dependencies, effectively creating a Directed Acyclic Graph (DAG) of tasks. This enables fine-grained control over task execution and maximizes parallelism where possible.
+
+Let's explore how to create task dependencies and build a DAG in Ray.
+
+**Code Example:**
+
+```python
+import ray
+
+ray.init()
+
+@ray.remote
+def task1():
+    # Task 1 logic
+    return "Result from task1"
+
+@ray.remote
+def task2():
+    # Task 2 logic
+    return "Result from task2"
+
+@ray.remote
+def task3(result1, result2):
+    # Task 3 logic, depending on results from task1 and task2
+    return f"Task3 received: {result1} and {result2}"
+
+# Execute tasks with dependencies
+result1_ref = task1.remote()
+result2_ref = task2.remote()
+result3_ref = task3.remote(result1_ref, result2_ref)
+
+# Get the final result
+result = ray.get(result3_ref)
+print(result)
+```
+
+**Output:**
+
+```
+Task3 received: Result from task1 and Result from task2
+```
+
+**Explanation:**
+
+- **Initialize Ray:**
+
+  ```python
+  ray.init()
+  ```
+
+  This starts the Ray runtime.
+
+- **Define Tasks:**
+
+  - `task1` and `task2` are independent tasks that can be executed in parallel.
+
+    ```python
+    @ray.remote
+    def task1():
+        return "Result from task1"
+    ```
+
+    ```python
+    @ray.remote
+    def task2():
+        return "Result from task2"
+    ```
+
+  - `task3` depends on the results of `task1` and `task2`.
+
+    ```python
+    @ray.remote
+    def task3(result1, result2):
+        return f"Task3 received: {result1} and {result2}"
+    ```
+
+- **Execute Tasks:**
+
+  - **Start Independent Tasks:**
+
+    ```python
+    result1_ref = task1.remote()
+    result2_ref = task2.remote()
+    ```
+
+    These tasks run in parallel, and `result1_ref` and `result2_ref` are object references to their eventual outputs.
+
+  - **Start Dependent Task:**
+
+    ```python
+    result3_ref = task3.remote(result1_ref, result2_ref)
+    ```
+
+    `task3` will automatically wait for `task1` and `task2` to complete because it depends on their outputs.
+
+- **Retrieve the Final Result:**
+
+  ```python
+  result = ray.get(result3_ref)
+  print(result)
+  ```
+
+  `ray.get()` fetches the result of `task3` once it's ready.
+
+**Visualization of the DAG:**
+
+```
+task1 ----\
+           \
+            --> task3 --> result
+           /
+task2 ----/
+```
+
+**Key Points:**
+
+- **Automatic Dependency Management:** By passing object references (`result1_ref`, `result2_ref`) as arguments to `task3`, Ray understands the dependencies and schedules the tasks accordingly.
+- **Parallel Execution:** Since `task1` and `task2` are independent, Ray runs them in parallel.
+- **Synchronization:** `task3` begins execution only after both `task1` and `task2` have completed.
+
+### Using Ray DAG API (Experimental)
+
+Ray provides an experimental DAG API for building workflows more declaratively. Here's how you can use it:
+
+**Code Example:**
+
+```python
+from ray.dag import InputNode
+import ray
+
+ray.init()
+
+@ray.remote
+def task1():
+    return "Result from task1"
+
+@ray.remote
+def task2():
+    return "Result from task2"
+
+@ray.remote
+def task3(result1, result2):
+    return f"Task3 received: {result1} and {result2}"
+
+# Define input nodes (if any)
+# In this case, task1 and task2 do not require inputs, so we can proceed to build the DAG
+
+# Build the DAG
+result1_node = task1.bind()
+result2_node = task2.bind()
+result3_node = task3.bind(result1_node, result2_node)
+
+# Execute the DAG
+result = ray.get(result3_node.execute())
+print(result)
+```
+
+**Explanation:**
+
+- **Binding Tasks:**
+
+  - `.bind()` is used instead of `.remote()` when building a DAG.
+  - `result1_node` and `result2_node` represent the tasks in the DAG.
+
+- **Constructing the DAG:**
+
+  ```python
+  result3_node = task3.bind(result1_node, result2_node)
+  ```
+
+  This defines `task3` as depending on `task1` and `task2`.
+
+- **Executing the DAG:**
+
+  ```python
+  result = ray.get(result3_node.execute())
+  ```
+
+  `.execute()` starts the execution of the DAG, and `ray.get()` retrieves the final result.
+
+**Note:**
+
+- The Ray DAG API is experimental and may have differences in syntax or functionality in different versions of Ray.
+- Always refer to the [latest Ray documentation](https://docs.ray.io/en/latest/ray-core/dag.html) for updates.
+
+**Advantages of Using DAGs:**
+
+- **Clarity in Dependencies:** DAGs make it explicit how tasks depend on each other.
+- **Optimization Opportunities:** Ray can optimize execution based on the DAG structure.
+- **Reusability:** DAGs can be reused with different inputs or configurations.
+
+Creating task dependencies and building DAGs in Ray allows for efficient and organized execution of complex workflows. By defining tasks and their dependencies, you can leverage Ray's scheduling to optimize performance and resource utilization.
+
+**Remember:**
+
+- Use `.remote()` when you want to execute tasks immediately.
+- Use `ray.get()` to retrieve results from object references.
+
+**Further Reading:**
+
+- [Ray Core - Task Parallelism](https://docs.ray.io/en/latest/ray-core/tasks.html)
+- [Ray DAG API (Experimental)](https://docs.ray.io/en/latest/ray-core/dag.html)
+
+---
+
