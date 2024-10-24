@@ -1,6 +1,6 @@
 # Ray 101: Accelerating Python Workflows with Ray
 
-![](https://ray-project.github.io/q4-2021-docs-hackathon/0.4/ray-overview/images/ray_framework_v2.png)
+![](https://docs.monadical.com/uploads/a103cb32-5f90-4df2-b191-02218661a90d.png)
 
 Processing large datasets or running computationally intensive tasks can be time-consuming when executed sequentially. Imagine trying to process a year's worth of transaction data line by line—it could take hours or even days on a single processor. This is where parallel computing comes into play.
 
