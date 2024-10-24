@@ -4,15 +4,15 @@ Parallel computing can significantly speed up data processing tasks by utilizing
 
 ## Table of Contents
 
-- [Understanding Ray Fundamentals](#understanding-ray-fundamentals)
-  - [Sequential Execution without Ray](#sequential-execution-without-ray)
-  - [Parallel Execution with Ray](#parallel-execution-with-ray)
-- [Task Dependencies in Ray](#task-dependencies-in-ray)
-- [Integrating Ray with MongoDB](#integrating-ray-with-mongodb)
-  - [Parallel Aggregations with Ray and MongoDB](#parallel-aggregations-with-ray-and-mongodb)
-  - [Sequential Aggregations without Ray](#sequential-aggregations-without-ray)
-- [When to Use Ray (and When Not To)](#when-to-use-ray-and-when-not-to)
-- [Conclusion](#conclusion)
+- Understanding Ray Fundamentals
+  - Sequential Execution without Ray
+  - Parallel Execution with Ray
+- Task Dependencies in Ray
+- Integrating Ray with MongoDB
+  - Parallel Aggregations with Ray and MongoDB
+  - Sequential Aggregations without Ray
+- When to Use Ray (and When Not To)
+- Conclusion
 
 ---
 
